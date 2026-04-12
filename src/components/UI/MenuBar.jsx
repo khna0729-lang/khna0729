@@ -1,4 +1,4 @@
-import { Home, Search, Bookmark, Route, Map, ChevronLeft } from 'lucide-react'
+import { Home, Search, Bookmark, Route, Map } from 'lucide-react'
 
 const MENU_ITEMS = [
   { id: 'home',      icon: Home,     label: '홈' },
@@ -9,17 +9,50 @@ const MENU_ITEMS = [
 
 export default function MenuBar({ activeMenu, onSelect, bookmarkCount }) {
   return (
-    <div className="flex flex-col items-center bg-white border-r border-gray-100 z-30 shadow-sm"
-         style={{ width: 64 }}>
+    <div style={{
+      width: 64,
+      minWidth: 64,
+      height: '100%',
+      background: '#ffffff',
+      borderRight: '1px solid #f0f0f0',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      zIndex: 30,
+      boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
+    }}>
       {/* 로고 */}
-      <div className="flex items-center justify-center w-full py-4 border-b border-gray-100">
-        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-          <Map size={18} className="text-white" />
+      <div style={{
+        width: '100%',
+        padding: '14px 0',
+        display: 'flex',
+        justifyContent: 'center',
+        borderBottom: '1px solid #f3f4f6',
+      }}>
+        <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: '#0062FF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 6px rgba(0,98,255,0.35)',
+        }}>
+          <Map size={18} color="#ffffff" />
         </div>
       </div>
 
-      {/* 메뉴 아이템 */}
-      <nav className="flex flex-col items-center gap-1 w-full py-3 flex-1">
+      {/* 메뉴 목록 */}
+      <nav style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: '10px 0',
+        flex: 1,
+        width: '100%',
+      }}>
         {MENU_ITEMS.map(({ id, icon: Icon, label }) => {
           const active = activeMenu === id
           return (
@@ -27,17 +60,56 @@ export default function MenuBar({ activeMenu, onSelect, bookmarkCount }) {
               key={id}
               onClick={() => onSelect(active ? null : id)}
               title={label}
-              className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl mx-auto transition-all ${
-                active
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'
-              }`}
+              style={{
+                position: 'relative',
+                width: 48,
+                height: 52,
+                borderRadius: 12,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                background: active ? '#0062FF' : 'transparent',
+                color: active ? '#ffffff' : '#9ca3af',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                if (!active) {
+                  e.currentTarget.style.background = '#f3f4f6'
+                  e.currentTarget.style.color = '#374151'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!active) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#9ca3af'
+                }
+              }}
             >
               <Icon size={20} />
-              <span className="text-[9px] mt-0.5 font-medium leading-none">{label}</span>
+              <span style={{ fontSize: 9, fontWeight: 600, lineHeight: 1 }}>{label}</span>
+
               {/* 즐겨찾기 뱃지 */}
               {id === 'bookmarks' && bookmarkCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-yellow-400 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                <span style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  background: '#f59e0b',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                }}>
                   {bookmarkCount > 9 ? '9+' : bookmarkCount}
                 </span>
               )}

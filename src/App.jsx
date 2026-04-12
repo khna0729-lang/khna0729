@@ -158,7 +158,14 @@ export default function App() {
   const panelOpen = activeMenu !== null
 
   return (
-    <div className="w-full h-full flex overflow-hidden" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div style={{
+      width: '100vw',
+      height: '100dvh',
+      display: 'flex',
+      flexDirection: 'row',
+      overflow: 'hidden',
+      fontFamily: "'Noto Sans KR', system-ui, sans-serif",
+    }}>
 
       {/* ══════════════════════════════════════
           좌측 메뉴바 (항상 보임, 64px)
@@ -173,15 +180,22 @@ export default function App() {
           콘텐츠 패널 (메뉴 선택 시 슬라이드)
       ══════════════════════════════════════ */}
       <div
-        className="flex flex-col bg-white border-r border-gray-100 z-20 transition-all duration-300 overflow-hidden"
         style={{
           width: panelOpen ? 340 : 0,
           minWidth: 0,
+          height: '100%',
+          background: '#ffffff',
+          borderRight: '1px solid #f0f0f0',
+          zIndex: 20,
+          overflow: 'hidden',
+          transition: 'width 0.25s ease',
           boxShadow: panelOpen ? '4px 0 16px rgba(0,0,0,0.08)' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {panelOpen && (
-          <div className="flex flex-col h-full" style={{ width: 340 }}>
+          <div style={{ width: 340, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
             {/* ── 홈 ── */}
             {panel === PANEL.HOME && (
