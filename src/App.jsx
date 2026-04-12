@@ -8,85 +8,115 @@ import LayerControl from './components/UI/LayerControl'
 import FloatingControls from './components/UI/FloatingControls'
 import CategoryBar from './components/UI/CategoryBar'
 import BookmarkPanel from './components/UI/BookmarkPanel'
+import MenuBar from './components/UI/MenuBar'
+import HomePanel from './components/UI/HomePanel'
 import { useSearch } from './hooks/useSearch'
 import { useRoute } from './hooks/useRoute'
 import { useBookmarks } from './hooks/useBookmarks'
-import { Bookmark, MapPin, AlertCircle } from 'lucide-react'
+import { MapPin, AlertCircle, ChevronLeft } from 'lucide-react'
 
-// Sidebar view states
-const VIEW = {
-  NONE: 'none',
-  SEARCH: 'search',
-  PLACE: 'place',
-  ROUTE: 'route',
+// 콘텐츠 패널 안에서 무엇을 보여줄지
+const PANEL = {
+  HOME:      'home',
+  RESULTS:   'results',
+  PLACE:     'place',
+  ROUTE:     'route',
   BOOKMARKS: 'bookmarks',
 }
 
 export default function App() {
   const mapRef = useRef(null)
 
-  // Map state
-  const [mapLayer, setMapLayer] = useState('street')
+  // 지도 상태
+  const [mapLayer, setMapLayer]   = useState('street')
   const [mapCenter, setMapCenter] = useState([37.5665, 126.978])
-  const [mapZoom, setMapZoom] = useState(13)
+  const [mapZoom, setMapZoom]     = useState(13)
 
-  // Panel view state
-  const [view, setView] = useState(VIEW.NONE)
+  // 메뉴바 + 패널 상태
+  const [activeMenu, setActiveMenu] = useState('home')   // 어떤 메뉴 아이콘이 선택됐는지
+  const [panel, setPanel]           = useState(PANEL.HOME) // 패널 안 내용
 
-  // Place state
+  // 선택된 장소
   const [selectedPlace, setSelectedPlace] = useState(null)
   const [activeCategory, setActiveCategory] = useState(null)
 
-  // Route state
-  const [routeOrigin, setRouteOrigin] = useState(null)
+  // 경로
+  const [routeOrigin, setRouteOrigin]           = useState(null)
   const [routeDestination, setRouteDestination] = useState(null)
-  const [routeMode, setRouteMode] = useState('car')
+  const [routeMode, setRouteMode]               = useState('car')
 
-  // User location
+  // 내 위치
   const [userLocation, setUserLocation] = useState(null)
-  const [locating, setLocating] = useState(false)
+  const [locating, setLocating]         = useState(false)
 
-  // Traffic overlay (UI toggle)
-  const [trafficOn, setTrafficOn] = useState(false)
+  // 교통정보 토글
+  const [trafficOn, setTrafficOn]   = useState(false)
   const [trafficMsg, setTrafficMsg] = useState(false)
 
-  // Hooks
+  // 훅
   const { results, loading: searchLoading, error: searchError, search, searchNearby, clearResults } = useSearch()
   const { routeData, loading: routeLoading, error: routeError, fetchRoute, clearRoute } = useRoute()
   const { bookmarks, addBookmark, removeBookmark, isBookmarked } = useBookmarks()
 
-  // --- Handlers ---
+  // ── 핸들러 ──────────────────────────────────────────────
 
-  const handleSearch = useCallback((query) => {
-    if (!query.trim()) {
-      clearResults()
-      if (view === VIEW.SEARCH && !selectedPlace) setView(VIEW.NONE)
+  // 메뉴바 아이콘 클릭
+  const handleMenuSelect = useCallback((id) => {
+    if (!id) {
+      // 같은 메뉴 재클릭 → 패널 닫기
+      setActiveMenu(null)
       return
     }
+    setActiveMenu(id)
+    if (id === 'home')      setPanel(PANEL.HOME)
+    if (id === 'search')    setPanel(PANEL.RESULTS)
+    if (id === 'bookmarks') setPanel(PANEL.BOOKMARKS)
+    if (id === 'route') {
+      setPanel(PANEL.ROUTE)
+      clearRoute()
+    }
+  }, [clearRoute])
+
+  // 검색 실행
+  const handleSearch = useCallback((query) => {
+    if (!query.trim()) { clearResults(); return }
     clearResults()
     setSelectedPlace(null)
     setActiveCategory(null)
     search(query)
-    setView(VIEW.SEARCH)
-  }, [search, clearResults, view, selectedPlace])
+    setActiveMenu('search')
+    setPanel(PANEL.RESULTS)
+  }, [search, clearResults])
 
+  // 장소 선택
   const handleSelectPlace = useCallback((place) => {
     setSelectedPlace(place)
-    setView(VIEW.PLACE)
+    setPanel(PANEL.PLACE)
     setMapCenter([place.lat, place.lon])
     setMapZoom(16)
   }, [])
 
+  // 길찾기 시작
   const handleStartRoute = useCallback((destination) => {
     setRouteDestination(destination)
-    setRouteOrigin(userLocation
-      ? { ...userLocation, name: '내 위치' }
-      : null
-    )
-    setView(VIEW.ROUTE)
+    setRouteOrigin(userLocation ? { ...userLocation, name: '내 위치' } : null)
+    setActiveMenu('route')
+    setPanel(PANEL.ROUTE)
     clearRoute()
   }, [userLocation, clearRoute])
 
+  // 카테고리 선택
+  const handleCategorySelect = useCallback((category) => {
+    setActiveCategory(category)
+    if (!category) { clearResults(); return }
+    const map = mapRef.current
+    const center = map ? map.getCenter() : { lat: 37.5665, lng: 126.978 }
+    searchNearby(center.lat, center.lng, category)
+    setActiveMenu('search')
+    setPanel(PANEL.RESULTS)
+  }, [searchNearby, clearResults])
+
+  // 내 위치
   const handleLocate = useCallback(() => {
     if (!navigator.geolocation) return
     setLocating(true)
@@ -103,38 +133,20 @@ export default function App() {
     )
   }, [])
 
-  const handleZoomIn = useCallback(() => {
-    const map = mapRef.current
-    if (map) map.zoomIn()
-  }, [])
+  const handleZoomIn  = useCallback(() => mapRef.current?.zoomIn(),  [])
+  const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), [])
 
-  const handleZoomOut = useCallback(() => {
-    const map = mapRef.current
-    if (map) map.zoomOut()
-  }, [])
-
+  // 지도 클릭 (경로 설정 모드)
   const handleMapClick = useCallback((latlng) => {
-    if (view === VIEW.ROUTE) {
-      if (!routeOrigin) {
-        setRouteOrigin({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
-      } else if (!routeDestination) {
-        setRouteDestination({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
-      }
+    if (panel === PANEL.ROUTE) {
+      if (!routeOrigin)      setRouteOrigin({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
+      else if (!routeDestination) setRouteDestination({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
     }
-  }, [view, routeOrigin, routeDestination])
+  }, [panel, routeOrigin, routeDestination])
 
-  const handleCategorySelect = useCallback((category) => {
-    setActiveCategory(category)
-    if (!category) {
-      clearResults()
-      setView(VIEW.NONE)
-      return
-    }
-    const map = mapRef.current
-    const center = map ? map.getCenter() : { lat: 37.5665, lng: 126.978 }
-    searchNearby(center.lat, center.lng, category)
-    setView(VIEW.SEARCH)
-  }, [searchNearby, clearResults])
+  const handleBookmark = useCallback((place) => {
+    isBookmarked(place.place_id) ? removeBookmark(place.place_id) : addBookmark(place)
+  }, [isBookmarked, addBookmark, removeBookmark])
 
   const handleTrafficToggle = useCallback(() => {
     setTrafficOn(on => !on)
@@ -142,36 +154,52 @@ export default function App() {
     setTimeout(() => setTrafficMsg(false), 3000)
   }, [])
 
-  const handleBookmark = useCallback((place) => {
-    if (isBookmarked(place.place_id)) {
-      removeBookmark(place.place_id)
-    } else {
-      addBookmark(place)
-    }
-  }, [isBookmarked, addBookmark, removeBookmark])
-
-  const panelOpen = view !== VIEW.NONE
+  // 패널 열림 여부 (메뉴가 선택된 경우)
+  const panelOpen = activeMenu !== null
 
   return (
-    <div className="w-full h-full flex relative overflow-hidden" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="w-full h-full flex overflow-hidden" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
 
-      {/* ===== LEFT SIDEBAR ===== */}
+      {/* ══════════════════════════════════════
+          좌측 메뉴바 (항상 보임, 64px)
+      ══════════════════════════════════════ */}
+      <MenuBar
+        activeMenu={activeMenu}
+        onSelect={handleMenuSelect}
+        bookmarkCount={bookmarks.length}
+      />
+
+      {/* ══════════════════════════════════════
+          콘텐츠 패널 (메뉴 선택 시 슬라이드)
+      ══════════════════════════════════════ */}
       <div
-        className={`relative flex flex-col bg-white z-20 transition-all duration-300 overflow-hidden ${
-          panelOpen ? 'shadow-xl' : ''
-        }`}
-        style={{ width: panelOpen ? '360px' : '0px', minWidth: 0 }}
+        className="flex flex-col bg-white border-r border-gray-100 z-20 transition-all duration-300 overflow-hidden"
+        style={{
+          width: panelOpen ? 340 : 0,
+          minWidth: 0,
+          boxShadow: panelOpen ? '4px 0 16px rgba(0,0,0,0.08)' : 'none',
+        }}
       >
         {panelOpen && (
-          <div className="flex flex-col h-full w-[360px]">
-            {view === VIEW.SEARCH && (
+          <div className="flex flex-col h-full" style={{ width: 340 }}>
+
+            {/* ── 홈 ── */}
+            {panel === PANEL.HOME && (
+              <HomePanel
+                onSearch={handleSearch}
+                onCategory={handleCategorySelect}
+                userLocation={userLocation}
+              />
+            )}
+
+            {/* ── 검색 탭: 검색창 + 결과 ── */}
+            {panel === PANEL.RESULTS && (
               <>
-                <div className="p-3 border-b border-gray-100 bg-white">
-                  <SearchBar
-                    onSearch={handleSearch}
-                    onBack={() => { setView(VIEW.NONE); clearResults(); setActiveCategory(null) }}
-                    showBack
-                  />
+                <div className="p-3 border-b border-gray-100 bg-white shrink-0">
+                  <SearchBar onSearch={handleSearch} showBack={false} />
+                  <div className="mt-2">
+                    <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} />
+                  </div>
                 </div>
                 <div className="flex-1 overflow-y-auto sidebar-scroll">
                   <SearchResults
@@ -187,17 +215,22 @@ export default function App() {
               </>
             )}
 
-            {view === VIEW.PLACE && selectedPlace && (
+            {/* ── 장소 상세 ── */}
+            {panel === PANEL.PLACE && selectedPlace && (
               <PlaceDetail
                 place={selectedPlace}
-                onClose={() => { setView(VIEW.NONE); setSelectedPlace(null) }}
+                onClose={() => {
+                  setSelectedPlace(null)
+                  setPanel(results.length ? PANEL.RESULTS : PANEL.HOME)
+                }}
                 onRoute={handleStartRoute}
                 isBookmarked={isBookmarked}
                 onBookmark={handleBookmark}
               />
             )}
 
-            {view === VIEW.ROUTE && (
+            {/* ── 길찾기 ── */}
+            {panel === PANEL.ROUTE && (
               <RoutePanel
                 origin={routeOrigin}
                 destination={routeDestination}
@@ -207,32 +240,35 @@ export default function App() {
                 loading={routeLoading}
                 error={routeError}
                 onFetchRoute={fetchRoute}
-                onClose={() => { setView(VIEW.NONE); clearRoute() }}
+                onClose={() => { setPanel(PANEL.HOME); setActiveMenu('home'); clearRoute() }}
                 mode={routeMode}
                 setMode={setRouteMode}
               />
             )}
 
-            {view === VIEW.BOOKMARKS && (
+            {/* ── 즐겨찾기 ── */}
+            {panel === PANEL.BOOKMARKS && (
               <BookmarkPanel
                 bookmarks={bookmarks}
                 onSelect={handleSelectPlace}
                 onRemove={removeBookmark}
-                onClose={() => setView(VIEW.NONE)}
+                onClose={() => { setPanel(PANEL.HOME); setActiveMenu('home') }}
               />
             )}
           </div>
         )}
       </div>
 
-      {/* ===== MAP AREA ===== */}
+      {/* ══════════════════════════════════════
+          지도 영역
+      ══════════════════════════════════════ */}
       <div className="flex-1 relative min-w-0">
         <MapView
           mapLayer={mapLayer}
           center={mapCenter}
           zoom={mapZoom}
           selectedPlace={selectedPlace}
-          searchResults={view === VIEW.SEARCH ? results : []}
+          searchResults={panel === PANEL.RESULTS ? results : []}
           routeData={routeData}
           userLocation={userLocation}
           onMapClick={handleMapClick}
@@ -240,41 +276,14 @@ export default function App() {
           mapRef={mapRef}
         />
 
-        {/* === TOP OVERLAY: Search bar + category bar === */}
-        <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-          <div className="p-3 flex flex-col gap-2">
-            {/* Search row */}
-            <div className="flex items-center gap-2 pointer-events-auto">
-              <button
-                onClick={() => setView(v => v === VIEW.BOOKMARKS ? VIEW.NONE : VIEW.BOOKMARKS)}
-                className={`w-11 h-11 rounded-xl float-shadow flex items-center justify-center shrink-0 transition-colors ${
-                  view === VIEW.BOOKMARKS
-                    ? 'bg-yellow-400 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-                title="즐겨찾기"
-              >
-                <Bookmark size={18} />
-              </button>
-              <div className="flex-1">
-                <SearchBar
-                  onSearch={handleSearch}
-                  placeholder="장소, 주소, 버스, 지하철 검색"
-                />
-              </div>
-            </div>
-
-            {/* Category bar */}
-            <div className="pointer-events-auto">
-              <CategoryBar
-                activeCategory={activeCategory}
-                onSelect={handleCategorySelect}
-              />
-            </div>
+        {/* 지도 위 검색창 (패널 닫혔을 때만) */}
+        {!panelOpen && (
+          <div className="absolute top-3 left-3 right-16 z-10 pointer-events-auto">
+            <SearchBar onSearch={handleSearch} placeholder="장소, 주소 검색" />
           </div>
-        </div>
+        )}
 
-        {/* === BOTTOM-LEFT: Layer control + traffic toggle === */}
+        {/* 레이어 + 교통정보 */}
         <div className="absolute bottom-6 left-4 z-10 flex flex-col gap-2 items-start">
           <LayerControl currentLayer={mapLayer} onChange={setMapLayer} />
           <button
@@ -287,7 +296,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* === RIGHT: Floating controls === */}
+        {/* 줌 / 내 위치 */}
         <div className="absolute right-4 bottom-6 z-10">
           <FloatingControls
             onZoomIn={handleZoomIn}
@@ -297,7 +306,7 @@ export default function App() {
           />
         </div>
 
-        {/* === Traffic notice toast === */}
+        {/* 교통정보 토스트 */}
         {trafficMsg && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 bg-gray-900/90 text-white text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 backdrop-blur-sm whitespace-nowrap">
             <AlertCircle size={14} className="text-yellow-400 shrink-0" />
@@ -305,8 +314,8 @@ export default function App() {
           </div>
         )}
 
-        {/* === Route click hint === */}
-        {view === VIEW.ROUTE && (!routeOrigin || !routeDestination) && (
+        {/* 경로 클릭 안내 */}
+        {panel === PANEL.ROUTE && (!routeOrigin || !routeDestination) && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 bg-primary text-white text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg whitespace-nowrap">
             <MapPin size={14} />
             지도를 클릭하여 {!routeOrigin ? '출발지' : '목적지'}를 선택하세요
