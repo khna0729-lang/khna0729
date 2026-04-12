@@ -137,36 +137,42 @@ function buildAddressFromTags(tags) {
 }
 
 function buildOverpassQuery(lat, lng, category) {
-  const radius = 1000 // 1km
+  const radius = 1500 // 1.5km
   const amenityMap = {
-    restaurant: 'amenity~"restaurant|fast_food"',
-    cafe: 'amenity=cafe',
+    restaurant:  'amenity~"restaurant|fast_food"',
+    cafe:        'amenity=cafe',
     convenience: 'shop=convenience',
-    pharmacy: 'amenity=pharmacy',
-    gas: 'amenity=fuel',
-    hospital: 'amenity~"hospital|clinic"',
-    parking: 'amenity=parking',
-    hotel: 'tourism~"hotel|motel|hostel"',
+    pharmacy:    'amenity=pharmacy',
+    gas:         'amenity=fuel',
+    hospital:    'amenity~"hospital|clinic"',
+    parking:     'amenity=parking',
+    hotel:       'tourism~"hotel|motel|hostel"',
+    government:  'amenity~"townhall|government|police|fire_station|post_office|courthouse"',
+    school:      'amenity~"school|university|college|kindergarten"',
+    bank:        'amenity~"bank|atm"',
   }
   const filter = amenityMap[category] || `amenity=${category}`
-  return `[out:json][timeout:10];
+  return `[out:json][timeout:15];
 (
   node[${filter}](around:${radius},${lat},${lng});
   way[${filter}](around:${radius},${lat},${lng});
 );
-out center 20;`
+out center 25;`
 }
 
 function getCategoryQuery(category) {
   const map = {
-    restaurant: '음식점',
-    cafe: '카페',
+    restaurant:  '음식점',
+    cafe:        '카페',
     convenience: '편의점',
-    pharmacy: '약국',
-    gas: '주유소',
-    hospital: '병원',
-    parking: '주차장',
-    hotel: '숙박',
+    pharmacy:    '약국',
+    gas:         '주유소',
+    hospital:    '병원',
+    parking:     '주차장',
+    hotel:       '숙박',
+    government:  '관공서',
+    school:      '학교',
+    bank:        '은행',
   }
   return map[category] || category
 }
@@ -198,5 +204,11 @@ function getOverpassIcon(tags) {
   if (a === 'parking') return '🅿️'
   if (s === 'convenience') return '🏪'
   if (a.includes('hotel') || tags.tourism?.includes('hotel')) return '🏨'
+  if (a === 'townhall' || a === 'government' || a === 'courthouse') return '🏛️'
+  if (a === 'police') return '🚔'
+  if (a === 'fire_station') return '🚒'
+  if (a === 'post_office') return '📮'
+  if (a === 'school' || a === 'university' || a === 'college') return '🏫'
+  if (a === 'bank' || a === 'atm') return '🏦'
   return '📍'
 }

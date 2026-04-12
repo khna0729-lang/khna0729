@@ -271,12 +271,24 @@ export default function App() {
           mapRef={mapRef}
         />
 
-        {/* 패널 닫혔을 때 상단 검색창 */}
-        {!panelOpen && (
-          <div style={{ position: 'absolute', top: 12, left: 12, right: 56, zIndex: 10 }}>
-            <SearchBar onSearch={handleSearch} placeholder="장소, 주소 검색" />
+        {/* 상단 오버레이: 검색창 + 카테고리 바 (항상 표시) */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+          padding: '10px 12px 8px',
+          pointerEvents: 'none',
+        }}>
+          {/* 패널 닫혔을 때만 검색창 표시 */}
+          {!panelOpen && (
+            <div style={{ marginBottom: 8, pointerEvents: 'auto' }}>
+              <SearchBar onSearch={handleSearch} placeholder="장소, 주소 검색" />
+            </div>
+          )}
+
+          {/* 카테고리 바 - 항상 표시 */}
+          <div style={{ pointerEvents: 'auto' }}>
+            <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} />
           </div>
-        )}
+        </div>
 
         {/* 지도 클릭 → 장소 팝업 */}
         {(clickedPlace || reverseLoading) && (
