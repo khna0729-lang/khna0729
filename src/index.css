@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+}
+
+.leaflet-control-zoom {
+  display: none; /* We use our own zoom controls */
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Custom marker styles */
+.custom-marker {
+  background: none;
+  border: none;
+}
+
+.marker-pin {
+  width: 32px;
+  height: 40px;
+  position: relative;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.marker-pin-start {
+  color: #00B050;
+}
+
+.marker-pin-end {
+  color: #FF4444;
+}
+
+/* Sidebar scrollbar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+
+/* Route polyline pulse animation */
+@keyframes routePulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Search input focus glow */
+.search-glow:focus {
+  box-shadow: 0 0 0 3px rgba(0, 98, 255, 0.15);
+}
+
+/* Smooth panel transitions */
+.panel-slide-enter {
+  transform: translateX(-100%);
+}
+.panel-slide-enter-active {
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+}
+
+/* Star rating */
+.star-filled {
+  color: #FF9500;
+}
+.star-empty {
+  color: #D1D5DB;
+}
+
+/* Category button active */
+.category-active {
+  background-color: #0062FF;
+  color: white;
+}
+
+/* Transit mode colors */
+.transit-subway {
+  color: #0062FF;
+}
+.transit-bus {
+  color: #00AA00;
+}
+.transit-walk {
+  color: #FF6B00;
+}
+
+/* Floating button shadow */
+.float-shadow {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
+}
+
+/* Layer control */
+.layer-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid transparent;
+}
+.layer-thumb.active {
+  border-color: #0062FF;
+}
