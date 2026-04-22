@@ -10,48 +10,14 @@
 
 html {
   height: 100%;
-  overflow: hidden;
 }
 
 body {
   height: 100%;
-  overflow: hidden;
   font-family: 'Noto Sans KR', system-ui, sans-serif;
-  background: #f0f0f0;
 }
 
 #root {
   width: 100%;
-  height: 100%;
-  display: flex;
-  overflow: hidden;
-  /* 기존 템플릿 스타일 완전 초기화 */
-  max-width: none;
-  margin: 0;
-  text-align: left;
-  border: none;
-  min-height: unset;
-  flex-direction: row;
-}
-
-/* Leaflet */
-.leaflet-container {
-  font-family: 'Noto Sans KR', system-ui, sans-serif;
-}
-.leaflet-control-zoom {
-  display: none;
-}
-.leaflet-control-attribution {
-  font-size: 10px;
-  opacity: 0.6;
-}
-
-/* 스크롤바 */
-.sidebar-scroll::-webkit-scrollbar { width: 4px; }
-.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-.sidebar-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
-
-/* 그림자 */
-.float-shadow {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.05);
+  min-height: 100%;
 }

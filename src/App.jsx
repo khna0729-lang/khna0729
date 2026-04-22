@@ -1,412 +1,430 @@
 import { useState, useRef, useCallback } from 'react'
-import MapView from './components/Map/MapView'
-import SearchBar from './components/Search/SearchBar'
-import SearchResults from './components/Search/SearchResults'
-import PlaceDetail from './components/Place/PlaceDetail'
-import RoutePanel from './components/Route/RoutePanel'
-import LayerControl from './components/UI/LayerControl'
-import FloatingControls from './components/UI/FloatingControls'
-import CategoryBar from './components/UI/CategoryBar'
-import BookmarkPanel from './components/UI/BookmarkPanel'
-import MenuBar from './components/UI/MenuBar'
-import HomePanel from './components/UI/HomePanel'
-import { useSearch } from './hooks/useSearch'
-import { useRoute } from './hooks/useRoute'
-import { useBookmarks } from './hooks/useBookmarks'
-import { MapPin, AlertCircle, X, Navigation } from 'lucide-react'
 
-const PANEL = {
-  HOME:      'home',
-  RESULTS:   'results',
-  PLACE:     'place',
-  ROUTE:     'route',
-  BOOKMARKS: 'bookmarks',
+const DIFFICULTY_LABEL = { beginner: '초급', intermediate: '중급', advanced: '고급' }
+const DIFFICULTY_COLOR = { beginner: 'bg-green-100 text-green-700', intermediate: 'bg-yellow-100 text-yellow-700', advanced: 'bg-red-100 text-red-700' }
+
+function ApiKeyInput({ apiKey, onSave }) {
+  const [val, setVal] = useState(apiKey)
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+      <p className="text-sm font-medium text-amber-800 mb-2">🔑 Anthropic API 키를 입력하세요</p>
+      <div className="flex gap-2">
+        <input
+          type="password"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          placeholder="sk-ant-..."
+          className="flex-1 text-sm border border-amber-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+        />
+        <button
+          onClick={() => onSave(val.trim())}
+          disabled={!val.trim()}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+        >
+          저장
+        </button>
+      </div>
+    </div>
+  )
 }
 
-const MENU_W  = 64    // 메뉴바 너비
-const PANEL_W = 340   // 콘텐츠 패널 너비
+function UploadZone({ onImage }) {
+  const inputRef = useRef(null)
+  const [dragging, setDragging] = useState(false)
+
+  const processFile = useCallback(file => {
+    if (!file || !file.type.match(/image\/(jpeg|png|webp)/)) return
+    const reader = new FileReader()
+    reader.onload = e => onImage({ dataUrl: e.target.result, base64: e.target.result.split(',')[1], mimeType: file.type })
+    reader.readAsDataURL(file)
+  }, [onImage])
+
+  const onDrop = e => {
+    e.preventDefault()
+    setDragging(false)
+    processFile(e.dataTransfer.files[0])
+  }
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={onDrop}
+      onClick={() => inputRef.current.click()}
+      className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all select-none
+        ${dragging ? 'border-green-500 bg-green-50' : 'border-green-300 hover:border-green-500 hover:bg-green-50 bg-white'}`}
+    >
+      <div className="text-5xl mb-3">🌿</div>
+      <p className="text-green-700 font-semibold text-lg">식물 사진을 업로드하세요</p>
+      <p className="text-green-500 text-sm mt-1">드래그 앤 드롭 또는 클릭 (JPG, PNG, WEBP)</p>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => processFile(e.target.files[0])} />
+    </div>
+  )
+}
+
+function TagList({ items, colorClass = 'bg-green-100 text-green-700' }) {
+  if (!items?.length) return null
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {items.map((item, i) => (
+        <span key={i} className={`text-xs px-2 py-1 rounded-full font-medium ${colorClass}`}>{item}</span>
+      ))}
+    </div>
+  )
+}
+
+function InfoRow({ label, value }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-gray-500 min-w-[80px] shrink-0">{label}</span>
+      <span className="text-gray-800">{value}</span>
+    </div>
+  )
+}
+
+function SunIcon({ level }) {
+  const icons = { '전광': '☀️', '반음지': '⛅', '음지': '🌑' }
+  const match = Object.keys(icons).find(k => level?.includes(k))
+  return <span>{icons[match] || '🌤️'} {level}</span>
+}
+
+function PlantCard({ plant }) {
+  const { koreanName, scientificName, englishName, family, genus, description,
+    characteristics, regions, careGuide, whereToBuy, funFacts } = plant
+
+  const searchUrl = name => `https://search.naver.com/search.naver?query=${encodeURIComponent(name + ' 식물 구매')}`
+  const coupangUrl = name => `https://www.coupang.com/np/search?q=${encodeURIComponent(name)}`
+  const auctionUrl = name => `https://www.auction.co.kr/search?query=${encodeURIComponent(name + ' 식물')}`
+
+  return (
+    <div className="space-y-4 mt-6">
+      {/* 기본 정보 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+        <div className="flex items-start gap-3">
+          <span className="text-4xl">🌱</span>
+          <div>
+            <h2 className="text-2xl font-bold text-green-800">{koreanName}</h2>
+            <p className="text-gray-500 text-sm italic">{scientificName}</p>
+            <p className="text-gray-500 text-sm">{englishName}</p>
+            <p className="text-xs text-gray-400 mt-1">{family} · {genus}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-gray-700 text-sm leading-relaxed">{description}</p>
+      </div>
+
+      {/* 특성 */}
+      {characteristics && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+          <h3 className="font-semibold text-green-700 mb-3">📋 특성</h3>
+          <div className="space-y-2">
+            <InfoRow label="키" value={characteristics.height} />
+            <InfoRow label="잎 모양" value={characteristics.leafShape} />
+            <InfoRow label="꽃 색깔" value={characteristics.flowerColor} />
+            <InfoRow label="개화시기" value={characteristics.floweringSeason} />
+            <InfoRow label="상록/낙엽" value={characteristics.evergreen ? '상록' : '낙엽'} />
+            {characteristics.toxicity && (
+              <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+                ⚠️ 독성: {characteristics.toxicity}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 자생 지역 */}
+      {regions && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+          <h3 className="font-semibold text-green-700 mb-3">🌍 자생 지역</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">분포 국가</p>
+              <TagList items={regions.countries} colorClass="bg-blue-100 text-blue-700" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">기후대</p>
+              <TagList items={regions.climateZones} colorClass="bg-sky-100 text-sky-700" />
+            </div>
+            {regions.koreaSpecific?.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">한국 자생지</p>
+                <TagList items={regions.koreaSpecific} colorClass="bg-green-100 text-green-700" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 재배 가이드 */}
+      {careGuide && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+          <h3 className="font-semibold text-green-700 mb-3">🪴 재배 가이드</h3>
+          <div className="space-y-2">
+            <div className="text-sm flex gap-2">
+              <span className="text-gray-500 min-w-[80px]">햇빛</span>
+              <SunIcon level={careGuide.sunlight} />
+            </div>
+            <InfoRow label="물주기" value={careGuide.watering} />
+            <InfoRow label="토양" value={careGuide.soilType} />
+            <div className="flex gap-2 text-sm items-center">
+              <span className="text-gray-500 min-w-[80px]">난이도</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DIFFICULTY_COLOR[careGuide.difficulty] || 'bg-gray-100 text-gray-600'}`}>
+                {DIFFICULTY_LABEL[careGuide.difficulty] || careGuide.difficulty}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 구매 정보 */}
+      {whereToBuy && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+          <h3 className="font-semibold text-green-700 mb-3">🛒 구매 정보</h3>
+          <div className="space-y-2 mb-4">
+            <InfoRow label="평균 가격" value={whereToBuy.avgPriceKRW} />
+            <InfoRow label="구매 적기" value={whereToBuy.bestSeason} />
+          </div>
+          <p className="text-xs text-gray-500 mb-2 font-medium">온라인 구매</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <a href={coupangUrl(koreanName)} target="_blank" rel="noopener noreferrer"
+              className="text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 px-3 py-1.5 rounded-lg font-medium transition-colors">
+              쿠팡에서 검색 →
+            </a>
+            <a href={searchUrl(koreanName)} target="_blank" rel="noopener noreferrer"
+              className="text-xs bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1.5 rounded-lg font-medium transition-colors">
+              네이버 스마트스토어 →
+            </a>
+            <a href={auctionUrl(koreanName)} target="_blank" rel="noopener noreferrer"
+              className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg font-medium transition-colors">
+              옥션에서 검색 →
+            </a>
+          </div>
+          <p className="text-xs text-gray-500 mb-2 font-medium">오프라인 구매</p>
+          <TagList items={['화훼단지', '인근 화원', '대형마트 원예코너']} colorClass="bg-gray-100 text-gray-600" />
+        </div>
+      )}
+
+      {/* 재미있는 사실 */}
+      {funFacts?.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-green-100">
+          <h3 className="font-semibold text-green-700 mb-3">💡 재미있는 사실</h3>
+          <ul className="space-y-2">
+            {funFacts.map((fact, i) => (
+              <li key={i} className="flex gap-2 text-sm text-gray-700">
+                <span className="text-green-500 shrink-0">•</span>
+                <span>{fact}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HistoryGallery({ history, onSelect }) {
+  if (!history.length) return null
+  return (
+    <div className="mt-8">
+      <h3 className="text-sm font-semibold text-gray-500 mb-3">📚 이전에 분석한 식물</h3>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {history.map((item, i) => (
+          <button key={i} onClick={() => onSelect(item)}
+            className="shrink-0 flex flex-col items-center gap-1 group">
+            <img src={item.dataUrl} alt={item.plant.koreanName}
+              className="w-16 h-16 object-cover rounded-xl border-2 border-transparent group-hover:border-green-400 transition-all" />
+            <span className="text-xs text-gray-600 max-w-[64px] truncate">{item.plant.koreanName}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const SYSTEM_PROMPT = `당신은 한국어로 응답하는 식물 전문가입니다. 식물 사진을 보고 식물을 식별하고 종합적인 정보를 제공합니다.
+
+식물 이미지가 주어지면 정확히 다음 구조의 JSON 객체를 반환하세요:
+{
+  "koreanName": "한국어 이름",
+  "scientificName": "학명",
+  "englishName": "English Name",
+  "family": "과명",
+  "genus": "속명",
+  "description": "식물 설명 (2-3문장)",
+  "characteristics": {
+    "height": "키 정보",
+    "leafShape": "잎 모양",
+    "flowerColor": "꽃 색깔",
+    "floweringSeason": "개화시기",
+    "evergreen": true,
+    "toxicity": "독성 정보 또는 null"
+  },
+  "regions": {
+    "countries": ["국가 목록"],
+    "climateZones": ["기후대"],
+    "koreaSpecific": ["한국 내 자생지"]
+  },
+  "careGuide": {
+    "sunlight": "햇빛 요구사항",
+    "watering": "물주기 정보",
+    "soilType": "토양 유형",
+    "difficulty": "beginner 또는 intermediate 또는 advanced"
+  },
+  "whereToBuy": {
+    "avgPriceKRW": "평균 가격",
+    "bestSeason": "구매 적기"
+  },
+  "funFacts": ["재미있는 사실 1", "재미있는 사실 2", "재미있는 사실 3"]
+}
+
+식물이 아닌 이미지인 경우 {"error": "식물이 아닙니다"} 를 반환하세요.
+JSON 외에 다른 텍스트는 포함하지 마세요.`
 
 export default function App() {
-  const mapRef = useRef(null)
+  const [apiKey, setApiKey] = useState('')
+  const [apiKeySaved, setApiKeySaved] = useState(false)
+  const [image, setImage] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [plant, setPlant] = useState(null)
+  const [error, setError] = useState(null)
+  const [history, setHistory] = useState([])
 
-  const [mapLayer, setMapLayer]   = useState('street')
-  const [mapCenter, setMapCenter] = useState([37.5665, 126.978])
-  const [mapZoom, setMapZoom]     = useState(13)
+  const handleSaveKey = key => {
+    setApiKey(key)
+    setApiKeySaved(!!key)
+  }
 
-  const [activeMenu, setActiveMenu] = useState('home')
-  const [panel, setPanel]           = useState(PANEL.HOME)
+  const handleImage = useCallback(img => {
+    setImage(img)
+    setPlant(null)
+    setError(null)
+  }, [])
 
-  const [selectedPlace, setSelectedPlace]   = useState(null)
-  const [clickedPlace, setClickedPlace]     = useState(null)   // 지도 클릭 임시 정보
-  const [activeCategory, setActiveCategory] = useState(null)
-
-  const [routeOrigin, setRouteOrigin]           = useState(null)
-  const [routeDestination, setRouteDestination] = useState(null)
-  const [routeMode, setRouteMode]               = useState('car')
-
-  const [userLocation, setUserLocation] = useState(null)
-  const [locating, setLocating]         = useState(false)
-  const [reverseLoading, setReverseLoading] = useState(false)
-
-  const [trafficOn, setTrafficOn]   = useState(false)
-  const [trafficMsg, setTrafficMsg] = useState(false)
-
-  const { results, loading: searchLoading, error: searchError,
-          search, searchNearby, clearResults, reverse } = useSearch()
-  const { routeData, loading: routeLoading, error: routeError,
-          fetchRoute, clearRoute } = useRoute()
-  const { bookmarks, addBookmark, removeBookmark, isBookmarked } = useBookmarks()
-
-  // ── 메뉴 선택 ───────────────────────────────────
-  const handleMenuSelect = useCallback((id) => {
-    if (!id) { setActiveMenu(null); return }
-    setActiveMenu(id)
-    if (id === 'home')      setPanel(PANEL.HOME)
-    if (id === 'search')    setPanel(PANEL.RESULTS)
-    if (id === 'bookmarks') setPanel(PANEL.BOOKMARKS)
-    if (id === 'route')   { setPanel(PANEL.ROUTE); clearRoute() }
-  }, [clearRoute])
-
-  // ── 검색 ───────────────────────────────────────
-  const handleSearch = useCallback((query) => {
-    if (!query.trim()) { clearResults(); return }
-    clearResults()
-    setSelectedPlace(null)
-    setActiveCategory(null)
-    setClickedPlace(null)
-    search(query)
-    setActiveMenu('search')
-    setPanel(PANEL.RESULTS)
-  }, [search, clearResults])
-
-  // ── 장소 선택 ───────────────────────────────────
-  const handleSelectPlace = useCallback((place) => {
-    setSelectedPlace(place)
-    setClickedPlace(null)
-    setPanel(PANEL.PLACE)
-    if (activeMenu === null) setActiveMenu('search')
-    setMapCenter([place.lat, place.lon])
-    setMapZoom(16)
-  }, [activeMenu])
-
-  // ── 지도 클릭 → 역지오코딩으로 장소 정보 표시 ──
-  const handleMapClick = useCallback(async (latlng) => {
-    // 경로 설정 모드
-    if (panel === PANEL.ROUTE) {
-      if (!routeOrigin)           setRouteOrigin({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
-      else if (!routeDestination) setRouteDestination({ ...latlng, name: `${latlng.lat.toFixed(4)}, ${latlng.lon.toFixed(4)}` })
-      return
-    }
-
-    // 역지오코딩으로 클릭 위치 정보 가져오기
-    setClickedPlace(null)
-    setReverseLoading(true)
+  const handleAnalyze = async () => {
+    if (!image || !apiKey) return
+    setLoading(true)
+    setError(null)
+    setPlant(null)
     try {
-      const place = await reverse(latlng.lat, latlng.lon)
-      if (place) {
-        setClickedPlace({ ...place, lat: latlng.lat, lon: latlng.lon })
-      }
-    } catch (_) {
-      setClickedPlace({
-        place_id: `click_${Date.now()}`,
-        name: '선택한 위치',
-        display_name: `${latlng.lat.toFixed(5)}, ${latlng.lon.toFixed(5)}`,
-        lat: latlng.lat, lon: latlng.lon,
-        address: {}, extratags: {}, icon: '📍',
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-direct-browser-calls': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2048,
+          system: SYSTEM_PROMPT,
+          messages: [{
+            role: 'user',
+            content: [{
+              type: 'image',
+              source: { type: 'base64', media_type: image.mimeType, data: image.base64 }
+            }, {
+              type: 'text',
+              text: '이 식물을 식별하고 JSON 형식으로 정보를 제공해주세요.'
+            }]
+          }]
+        })
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error?.message || `API 오류: ${res.status}`)
+      }
+      const data = await res.json()
+      const text = data.content?.[0]?.text || ''
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('응답을 파싱할 수 없습니다.')
+      const parsed = JSON.parse(jsonMatch[0])
+      if (parsed.error) throw new Error(parsed.error)
+      setPlant(parsed)
+      setHistory(h => [{ dataUrl: image.dataUrl, plant: parsed }, ...h].slice(0, 20))
+    } catch (e) {
+      setError(e.message)
     } finally {
-      setReverseLoading(false)
+      setLoading(false)
     }
-  }, [panel, routeOrigin, routeDestination, reverse])
+  }
 
-  // ── 길찾기 시작 ─────────────────────────────────
-  const handleStartRoute = useCallback((destination) => {
-    setRouteDestination(destination)
-    setRouteOrigin(userLocation ? { ...userLocation, name: '내 위치' } : null)
-    setActiveMenu('route')
-    setPanel(PANEL.ROUTE)
-    setClickedPlace(null)
-    clearRoute()
-  }, [userLocation, clearRoute])
+  const handleHistorySelect = item => {
+    setImage({ dataUrl: item.dataUrl, base64: '', mimeType: '' })
+    setPlant(item.plant)
+    setError(null)
+  }
 
-  // ── 카테고리 ────────────────────────────────────
-  const handleCategorySelect = useCallback((category) => {
-    setActiveCategory(category)
-    if (!category) { clearResults(); return }
-    const map = mapRef.current
-    const center = map ? map.getCenter() : { lat: 37.5665, lng: 126.978 }
-    searchNearby(center.lat, center.lng, category)
-    setActiveMenu('search')
-    setPanel(PANEL.RESULTS)
-  }, [searchNearby, clearResults])
+  const handleReset = () => {
+    setImage(null)
+    setPlant(null)
+    setError(null)
+  }
 
-  // ── 내 위치 ─────────────────────────────────────
-  const handleLocate = useCallback(() => {
-    if (!navigator.geolocation) return
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: '내 위치' }
-        setUserLocation(loc)
-        setMapCenter([loc.lat, loc.lon])
-        setMapZoom(16)
-        setLocating(false)
-      },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [])
-
-  const handleZoomIn  = useCallback(() => mapRef.current?.zoomIn(),  [])
-  const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), [])
-
-  const handleBookmark = useCallback((place) => {
-    isBookmarked(place.place_id) ? removeBookmark(place.place_id) : addBookmark(place)
-  }, [isBookmarked, addBookmark, removeBookmark])
-
-  const handleTrafficToggle = useCallback(() => {
-    setTrafficOn(on => !on)
-    setTrafficMsg(true)
-    setTimeout(() => setTrafficMsg(false), 3000)
-  }, [])
-
-  const panelOpen  = activeMenu !== null
-  const leftOffset = MENU_W + (panelOpen ? PANEL_W : 0)
-
-  // ── 렌더 ────────────────────────────────────────
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      display: 'flex', flexDirection: 'row', overflow: 'hidden',
-      fontFamily: "'Noto Sans KR', system-ui, sans-serif",
-    }}>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="max-w-lg mx-auto px-4 py-8">
+        {/* 헤더 */}
+        <header className="text-center mb-8">
+          <div className="text-5xl mb-2">🌿</div>
+          <h1 className="text-3xl font-bold text-green-800">식물 백과사전</h1>
+          <p className="text-green-600 text-sm mt-1">사진으로 식물을 식별하세요</p>
+        </header>
 
-      {/* ▌메뉴바 (항상 보임, 64px) */}
-      <MenuBar
-        activeMenu={activeMenu}
-        onSelect={handleMenuSelect}
-        bookmarkCount={bookmarks.length}
-      />
-
-      {/* ▌콘텐츠 패널 (슬라이드) */}
-      <div style={{
-        width: panelOpen ? PANEL_W : 0,
-        minWidth: 0,
-        height: '100%',
-        background: '#fff',
-        borderRight: '1px solid #f0f0f0',
-        overflow: 'hidden',
-        transition: 'width 0.25s ease',
-        boxShadow: panelOpen ? '4px 0 16px rgba(0,0,0,0.08)' : 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 20,
-      }}>
-        {panelOpen && (
-          <div style={{ width: PANEL_W, height: '100%', display: 'flex', flexDirection: 'column' }}>
-
-            {panel === PANEL.HOME && (
-              <HomePanel onSearch={handleSearch} onCategory={handleCategorySelect} userLocation={userLocation} />
-            )}
-
-            {panel === PANEL.RESULTS && (
-              <>
-                <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-                  <SearchBar onSearch={handleSearch} showBack={false} />
-                  <div style={{ marginTop: 8 }}>
-                    <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} />
-                  </div>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto' }} className="sidebar-scroll">
-                  <SearchResults
-                    results={results} loading={searchLoading} error={searchError}
-                    onSelect={handleSelectPlace} userLocation={userLocation}
-                    isBookmarked={isBookmarked} onBookmark={handleBookmark}
-                  />
-                </div>
-              </>
-            )}
-
-            {panel === PANEL.PLACE && selectedPlace && (
-              <PlaceDetail
-                place={selectedPlace}
-                onClose={() => { setSelectedPlace(null); setPanel(results.length ? PANEL.RESULTS : PANEL.HOME) }}
-                onRoute={handleStartRoute}
-                isBookmarked={isBookmarked}
-                onBookmark={handleBookmark}
-              />
-            )}
-
-            {panel === PANEL.ROUTE && (
-              <RoutePanel
-                origin={routeOrigin} destination={routeDestination}
-                setOrigin={setRouteOrigin} setDestination={setRouteDestination}
-                routeData={routeData} loading={routeLoading} error={routeError}
-                onFetchRoute={fetchRoute}
-                onClose={() => { setPanel(PANEL.HOME); setActiveMenu('home'); clearRoute() }}
-                mode={routeMode} setMode={setRouteMode}
-              />
-            )}
-
-            {panel === PANEL.BOOKMARKS && (
-              <BookmarkPanel
-                bookmarks={bookmarks} onSelect={handleSelectPlace}
-                onRemove={removeBookmark}
-                onClose={() => { setPanel(PANEL.HOME); setActiveMenu('home') }}
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ▌지도 영역 */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 }}>
-        <MapView
-          mapLayer={mapLayer} center={mapCenter} zoom={mapZoom}
-          selectedPlace={selectedPlace}
-          searchResults={panel === PANEL.RESULTS ? results : []}
-          routeData={routeData} userLocation={userLocation}
-          onMapClick={handleMapClick}
-          onMarkerClick={handleSelectPlace}
-          mapRef={mapRef}
-        />
-
-        {/* 상단 오버레이: 검색창 + 카테고리 바 (항상 표시) */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-          padding: '10px 12px 8px',
-          pointerEvents: 'none',
-        }}>
-          {/* 패널 닫혔을 때만 검색창 표시 */}
-          {!panelOpen && (
-            <div style={{ marginBottom: 8, pointerEvents: 'auto' }}>
-              <SearchBar onSearch={handleSearch} placeholder="장소, 주소 검색" />
-            </div>
-          )}
-
-          {/* 카테고리 바 - 항상 표시 */}
-          <div style={{ pointerEvents: 'auto' }}>
-            <CategoryBar activeCategory={activeCategory} onSelect={handleCategorySelect} />
-          </div>
-        </div>
-
-        {/* 지도 클릭 → 장소 팝업 */}
-        {(clickedPlace || reverseLoading) && (
-          <div style={{
-            position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)',
-            background: '#fff', borderRadius: 16, padding: '14px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)', zIndex: 20,
-            minWidth: 260, maxWidth: 320, width: 'calc(100% - 32px)',
-          }}>
-            {reverseLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6b7280' }}>
-                <div style={{
-                  width: 18, height: 18, border: '2px solid #0062FF',
-                  borderTopColor: 'transparent', borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                }} />
-                <span style={{ fontSize: 13 }}>위치 정보 불러오는 중...</span>
-              </div>
-            ) : clickedPlace && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 20 }}>{clickedPlace.icon || '📍'}</span>
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>{clickedPlace.name}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0', lineHeight: 1.4 }}>
-                        {clickedPlace.display_name?.split(',').slice(0, 3).join(',')}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setClickedPlace(null)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2 }}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <p style={{ fontSize: 11, color: '#6b7280', marginBottom: 10, fontFamily: 'monospace' }}>
-                  {clickedPlace.lat?.toFixed(5)}, {clickedPlace.lon?.toFixed(5)}
-                </p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => handleSelectPlace(clickedPlace)}
-                    style={{
-                      flex: 1, padding: '8px 0', borderRadius: 10, border: 'none',
-                      background: '#0062FF', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    }}
-                  >
-                    상세 정보
-                  </button>
-                  <button
-                    onClick={() => handleStartRoute(clickedPlace)}
-                    style={{
-                      flex: 1, padding: '8px 0', borderRadius: 10,
-                      border: '1px solid #e5e7eb', background: '#fff',
-                      color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    }}
-                  >
-                    길찾기
-                  </button>
-                </div>
-              </>
-            )}
+        {/* API 키 입력 */}
+        {!apiKeySaved ? (
+          <ApiKeyInput apiKey={apiKey} onSave={handleSaveKey} />
+        ) : (
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-2 mb-4">
+            <span className="text-sm text-green-700">🔑 API 키 설정됨</span>
+            <button onClick={() => setApiKeySaved(false)} className="text-xs text-green-500 hover:text-green-700 underline">변경</button>
           </div>
         )}
 
-        {/* 레이어 + 교통정보 */}
-        <div style={{ position: 'absolute', bottom: 24, left: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <LayerControl currentLayer={mapLayer} onChange={setMapLayer} />
+        {/* 업로드 영역 */}
+        {!image ? (
+          <UploadZone onImage={handleImage} />
+        ) : (
+          <div className="relative">
+            <img src={image.dataUrl} alt="업로드된 식물" className="w-full rounded-2xl object-cover max-h-72 shadow-md" />
+            <button onClick={handleReset}
+              className="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-600 rounded-full w-8 h-8 flex items-center justify-center text-lg shadow transition-colors">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* 분석 버튼 */}
+        {image && !plant && (
           <button
-            onClick={handleTrafficToggle}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '7px 12px', borderRadius: 12, border: 'none', cursor: 'pointer',
-              background: trafficOn ? '#ef4444' : '#fff', color: trafficOn ? '#fff' : '#374151',
-              fontSize: 12, fontWeight: 500,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.13)',
-            }}
+            onClick={handleAnalyze}
+            disabled={loading || !apiKeySaved}
+            className="w-full mt-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            🚗 교통정보 {trafficOn ? 'ON' : 'OFF'}
+            {loading ? (
+              <>
+                <span className="animate-spin">🔄</span>
+                <span>식물 분석 중...</span>
+              </>
+            ) : (
+              <>🔍 식물 분석하기</>
+            )}
           </button>
-        </div>
+        )}
 
-        {/* 줌 / 내 위치 */}
-        <div style={{ position: 'absolute', right: 12, bottom: 24, zIndex: 10 }}>
-          <FloatingControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onLocate={handleLocate} locating={locating} />
-        </div>
-
-        {/* 교통정보 토스트 */}
-        {trafficMsg && (
-          <div style={{
-            position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(17,24,39,0.9)', color: '#fff', fontSize: 12,
-            padding: '10px 16px', borderRadius: 12, display: 'flex', alignItems: 'center',
-            gap: 8, zIndex: 30, whiteSpace: 'nowrap',
-          }}>
-            <AlertCircle size={14} color="#fbbf24" />
-            실시간 교통정보는 현재 지원되지 않습니다
+        {/* 에러 */}
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+            ⚠️ {error}
           </div>
         )}
 
-        {/* 경로 클릭 안내 */}
-        {panel === PANEL.ROUTE && (!routeOrigin || !routeDestination) && (
-          <div style={{
-            position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)',
-            background: '#0062FF', color: '#fff', fontSize: 12,
-            padding: '10px 16px', borderRadius: 12, display: 'flex', alignItems: 'center',
-            gap: 8, zIndex: 30, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,98,255,0.4)',
-          }}>
-            <MapPin size={14} />
-            지도를 클릭하여 {!routeOrigin ? '출발지' : '목적지'}를 선택하세요
-          </div>
-        )}
+        {/* 결과 */}
+        {plant && <PlantCard plant={plant} />}
+
+        {/* 히스토리 */}
+        <HistoryGallery history={history} onSelect={handleHistorySelect} />
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   )
 }
