@@ -10,6 +10,7 @@ import CategoryBar from './components/UI/CategoryBar'
 import BookmarkPanel from './components/UI/BookmarkPanel'
 import MenuBar from './components/UI/MenuBar'
 import HomePanel from './components/UI/HomePanel'
+import TetrisGame from './components/Tetris/TetrisGame'
 import { useSearch } from './hooks/useSearch'
 import { useRoute } from './hooks/useRoute'
 import { useBookmarks } from './hooks/useBookmarks'
@@ -35,6 +36,7 @@ export default function App() {
 
   const [activeMenu, setActiveMenu] = useState('home')
   const [panel, setPanel]           = useState(PANEL.HOME)
+  const [showTetris, setShowTetris] = useState(false)
 
   const [selectedPlace, setSelectedPlace]   = useState(null)
   const [clickedPlace, setClickedPlace]     = useState(null)   // 지도 클릭 임시 정보
@@ -65,6 +67,7 @@ export default function App() {
     if (id === 'search')    setPanel(PANEL.RESULTS)
     if (id === 'bookmarks') setPanel(PANEL.BOOKMARKS)
     if (id === 'route')   { setPanel(PANEL.ROUTE); clearRoute() }
+    if (id === 'tetris')  { setShowTetris(true); return }
   }, [clearRoute])
 
   // ── 검색 ───────────────────────────────────────
@@ -403,6 +406,10 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {showTetris && (
+        <TetrisGame onClose={() => { setShowTetris(false); setActiveMenu('home') }} />
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

@@ -1,10 +1,11 @@
-import { Home, Search, Bookmark, Route, Map } from 'lucide-react'
+import { Home, Search, Bookmark, Route, Map, Gamepad2 } from 'lucide-react'
 
 const MENU_ITEMS = [
   { id: 'home',      icon: Home,     label: '홈' },
   { id: 'search',    icon: Search,   label: '검색' },
   { id: 'bookmarks', icon: Bookmark, label: '즐겨찾기' },
   { id: 'route',     icon: Route,    label: '길찾기' },
+  { id: 'tetris',    icon: Gamepad2, label: '테트리스' },
 ]
 
 export default function MenuBar({ activeMenu, onSelect, bookmarkCount }) {
